@@ -50,6 +50,21 @@
                 <xsl:when test="$depth = 2">
                     <xsl:text>subsubsection</xsl:text>
                 </xsl:when>
+                <xsl:when test="$depth = 3">
+                    <xsl:text>paragraphs</xsl:text>
+                </xsl:when>
+                <xsl:when test="$depth = 4">
+                    <xsl:text>paragraphs</xsl:text>
+                </xsl:when>
+                <xsl:when test="$depth = 5">
+                    <xsl:text>paragraphs</xsl:text>
+                </xsl:when>
+                <xsl:when test="$depth = 6">
+                    <xsl:text>paragraphs</xsl:text>
+                </xsl:when>
+                <xsl:when test="$depth = 7">
+                    <xsl:text>paragraphs</xsl:text>
+                </xsl:when>
                 <xsl:otherwise>
                     <xsl:message>Division depth too deep</xsl:message>
                 </xsl:otherwise>
@@ -85,16 +100,17 @@
 
     <xsl:template match="@ids">
         <xsl:attribute name="xml:id">
-            <xsl:value-of select="concat($folder, '_', .)" />
-            <!-- <xsl:if test="$filename = 'Exercises.xml'">
-                <xsl:value-of select="concat($folder, '-', .)" />
-            </xsl:if>
-            <xsl:if test="$filename = 'Glossary.xml'">
-                <xsl:value-of select="concat($folder, '-', .)" />
-            </xsl:if>
-            <xsl:if test="$filename != 'Exercises.xml' and $filename != 'Glossary.xml'">
-                <xsl:value-of select="." />
-            </xsl:if> -->
+            <xsl:choose>
+                <xsl:when test=". = 'proof-content'">
+                    <xsl:value-of select="generate-id()" />
+                </xsl:when>
+                <xsl:when test="starts-with(.,'id')">
+                    <xsl:value-of select="generate-id()" />
+                </xsl:when>
+                <xsl:otherwise>
+                    <xsl:value-of select="." />
+                </xsl:otherwise>
+            </xsl:choose>
 
         </xsl:attribute>
     </xsl:template>
@@ -108,6 +124,24 @@
         <note>
             <xsl:apply-templates select="node()|@ids" />
         </note>
+    </xsl:template>
+    <xsl:template match="example_node">
+        <figure>
+            <xsl:apply-templates select="node()|@ids" />
+        </figure>
+    </xsl:template>
+    <xsl:template match="definition_node">
+        <definition>
+            <xsl:apply-templates select="node()[self::title]|@ids" />
+            <statement>
+                <xsl:apply-templates select="node()/*[not(self::title)]|@classes" />
+            </statement>
+        </definition>
+    </xsl:template>
+    <xsl:template match="math">
+        <m>
+            <xsl:apply-templates select="node()|@ids" />
+        </m>
     </xsl:template>
 
     <xsl:template match="img">
@@ -338,6 +372,24 @@
             <xsl:apply-templates select="node()" />
         </title>
     </xsl:template>
+    <xsl:template match="title">
+
+        <xsl:variable name="title">
+            <xsl:variable name="tag" select="name(..)" />
+            <xsl:choose>
+                <xsl:when test="$tag = 'example_node'">
+                    <xsl:text>caption</xsl:text>
+                </xsl:when>
+                <xsl:otherwise>
+                    <xsl:text>title</xsl:text>
+                </xsl:otherwise>
+            </xsl:choose>
+        </xsl:variable>
+        <xsl:element name="{$title}">
+            <!-- todo: add title -->
+            <xsl:apply-templates select="node()|@ids" />
+        </xsl:element>
+    </xsl:template>
 
     <xsl:template match="definition" mode="glossary">
         <xsl:apply-templates select="node()" />
@@ -372,7 +424,7 @@
     </xsl:template>
 
     <xsl:template match="compound[contains(@classes, 'toctree-wrapper')]">
-      <tocToBeReplaced/>
+        <tocToBeReplaced/>
     </xsl:template>
 
     <xsl:template match="compound">
@@ -473,15 +525,15 @@
     <!-- kludges to mush CSAwesome into someting that PreTeXt doesn't choke on. -->
 
     <xsl:template match="TimedNode">
-      <exercises>
-        <xsl:apply-templates select="node()|@*"/>
-      </exercises>
+        <exercises>
+            <xsl:apply-templates select="node()|@*"/>
+        </exercises>
     </xsl:template>
 
     <xsl:template match='RevealNode[exercise]'>
-      <exercises>
-        <xsl:apply-templates select="node()|@*" />
-      </exercises>
+        <exercises>
+            <xsl:apply-templates select="node()|@*" />
+        </exercises>
     </xsl:template>
 
 

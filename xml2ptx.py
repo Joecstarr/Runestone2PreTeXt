@@ -1,15 +1,15 @@
 # apply the xslt stylesheet to all available xml files
 
-import subprocess
 import lxml.etree as ET
-import os
 import re
 from pathlib import Path
-import pdb
-import sys
+from rich import print
+import typer
+from typing import Optional
+from typing_extensions import Annotated
 
-xsl_filename = Path(__file__).parent / "docutils2ptx.xsl"
-basedir = sys.argv[1]
+
+XSLT_PATH = Path(__file__).parent / "docutils2ptx.xsl"
 
 
 def to_snake(name):
@@ -23,49 +23,50 @@ def camel_to_snake(name):
     return re.sub("([a-z0-9])([A-Z])", r"\1-\2", name).lower()
 
 
-def transform_one_page(root, xml_filename, fileonly):
-    if "toctree" in str(xml_filename):
-        return
+def transform_one_page(xml_file: Path, out_path: Path):
     try:
-        dom = ET.parse(xml_filename)
+        dom = ET.parse(xml_file)
     except Exception as e:
-        print(f"Failed to parse {xml_filename}")
+        print(f"Failed to parse {xml_file}")
         print(e)
         return
-    stringparams = {"filename": ET.XSLT.strparam(fileonly)}
-    folder = root.split("/")[-1].strip()
-    folder = camel_to_snake(folder)
-    stringparams["folder"] = ET.XSLT.strparam(folder)
+    params = {
+        "filename": ET.XSLT.strparam(str(xml_file.stem)),
+        "folder": ET.XSLT.strparam(str(xml_file.parent)),
+    }
 
-    xslt = ET.parse(xsl_filename)
+    xslt = ET.parse(XSLT_PATH)
     transform = ET.XSLT(xslt)
     try:
-        newdom = transform(
-            dom, **stringparams
-        )  # can add an unparsed dictionary of stringparams
+        newdom = transform(dom, **params)
+        ptx_file = out_path.with_suffix(".ptx")
+        ptx_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(ptx_file, "w") as ptfile:
+            ptfile.write(ET.tostring(newdom, pretty_print=True).decode("utf8"))
     except Exception as e:
-        print(f"Failed to transform {xml_filename}")
+        print(f"Failed to transform {xml_file}")
         print(e)
         return
-    newroot = root.replace("build/xml", "")
-    ptx_filename = str(xml_filename).replace(".xml", ".ptx").replace("build/xml", "")
-    # maybe need to make folder
-    if ptx_filename.startswith("/"):
-        ptx_filename = ptx_filename[1:]
-    fpath = Path(basedir) / "pretext" / Path(ptx_filename)
-    if "/" in ptx_filename:
-        fpath.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(fpath, "w") as ptfile:
-        ptfile.write(ET.tostring(newdom, pretty_print=True).decode("utf8"))
 
 
-xmldir = Path(basedir) / "build"
-if not xmldir.exists():
-    print(f"Directory {xmldir} does not exist")
+app = typer.Typer()
 
-# Recursively walk the tree
-for root, dirs, files in os.walk(xmldir):
-    for file in files:
-        if file.endswith(".xml"):
-            transform_one_page(root, Path(os.path.join(root, file)), file)
+
+@app.command()
+def transform(
+    xml: Annotated[str, typer.Option(help="Path to the xml directory.")],
+    out: Annotated[
+        str, typer.Option(help="Path to the output directory.")
+    ] = "pretext/",
+):
+    xml_path = Path(xml)
+    out_path = Path(out)
+    for file in sorted(xml_path.glob("**/*.xml")):
+        print(file.relative_to(xml_path))
+        ptx_path = file.relative_to(xml_path)
+        transform_one_page(file, out_path / ptx_path )
+    ...
+
+
+if __name__ == "__main__":
+    app()
